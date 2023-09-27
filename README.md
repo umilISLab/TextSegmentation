@@ -73,7 +73,3 @@ model.fit(X_train, y_train, n_epochs = training_epochs)
 # X_test = [...]
 predictions = model.predict(X_test)
 ```
-
----
-### License
-This project is licensed under the terms of the MIT license.
