@@ -14,7 +14,7 @@ Usage:
 
 ```
 # Importing modules
-from textsegmentation.sentenceclassifiers import *
+from TextSegmentation.sentenceclassifiers import *
 import torch
 
 # Initialize parameters
