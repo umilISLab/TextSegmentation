@@ -290,3 +290,15 @@ def onehot_tensor(shape, position):
     T[position] = 1
 
     return T
+
+
+def init_label_probs(sequence_lengths: Iterable[int], classes: Iterable[Union[str,int]], priorposinfo: tuple = ()):
+
+    priors = random_init_tensor_list([(l, len(classes)) for l in sequence_lengths])
+    # priors is a list of tensors of shape (len(y_seq), len(classes)), where len(y_seq) is variable
+    if priorposinfo:
+        priors = list(map(lambda T: torch.cat(
+            [onehot_tensor(len(classes), priorposinfo[0]).reshape((1, -1)), T[1:-1, :],
+             onehot_tensor(len(classes), priorposinfo[-1]).reshape((1, -1))], dim=0), priors))
+
+    return priors

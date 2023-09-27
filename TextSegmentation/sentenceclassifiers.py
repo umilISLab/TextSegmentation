@@ -652,7 +652,10 @@ class PairGraphSeg():
         if not isinstance(X, List):
             X = X.tolist()
 
+        # Initialize probabilities as uniform if not provided
         lengths = list(map(len, X))
+        if not priors:
+            priors = init_label_probs(lengths, self.classes_)
 
         Ps = []
         Xs = []
