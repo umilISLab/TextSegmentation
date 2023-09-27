@@ -1,5 +1,5 @@
 from torch.optim.lr_scheduler import MultiplicativeLR
-from utils import *
+from .utils import *
 from collections import defaultdict
 from itertools import combinations
 from sklearn.utils import resample
