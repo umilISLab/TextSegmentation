@@ -1,2 +1,2 @@
-from sentenceclassifiers import *
-from utils import *
+from .sentenceclassifiers import *
+from .utils import *
