@@ -10,7 +10,7 @@ Paper reference and an example on a publicly available dataset will be provided 
 
 The proposed approach addresses the task of Text Segmentation in the few-shot scenario. It does so by learning how to re-wire the underlying graph structure of a linear-chain Conditional Random Field (CRF) model, adding connections between non-consecutive elements with probability 1 - `cutoff_prob_high` and pruning connections between consecutive elements with probability 1 - `cutoff_prob_low`.
 
-<img src = "./esempio.pdf"></img>
+<embed src = "./esempio.pdf" type = "application/pdf"></embed>
 
 Usage:
 
