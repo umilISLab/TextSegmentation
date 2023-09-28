@@ -431,7 +431,7 @@ class GeneralCRF(BaseClassifier):
                 delta = self._delta_function(Y_pred.detach().cpu(), Y_curr_padded.detach().cpu())
                 if delta.item() < self._termination:
                     break
-                Y_curr = Y_pred.clone()
+                Y_curr = [ys for ys in Y_pred]
 
             if t >= self._max_iter - 1:
                 print("[GeneralCRF.predict_proba] Convergence not reached...")
@@ -569,7 +569,7 @@ class PairGraphSeg():
                     if isinstance(self.P_classifier, torch.nn.Module):
                         X_pair_minibatch = tensor_check(X_pair_minibatch).to(self.device)
                         Y_pair_minibatch = tensor_check(Y_pair_minibatch).to(self.device)
-                    self.P_classifier.partial_fit(X_pair_minibatch, Y_pair_minibatch, classes=self.classes_)
+                    self.P_classifier.partial_fit(X_pair_minibatch, Y_pair_minibatch, classes=[0,1])
                 self.time_performance["Fit Pair classifier"].append(time() - tic)
 
                 P_epoch_losses.append(self.P_classifier.best_loss_)
