@@ -669,7 +669,11 @@ class PairGraphSeg():
             X_pairs = [np.concatenate((x_seq[i], x_seq[j])) for i, j in pairs]
 
             X_pairs = tensor_check(X_pairs).to(self.device)
-            pair_probs = self.P_classifier.predict_proba(X_pairs).detach().cpu()[:, 0]
+            pair_probs = self.P_classifier.predict_proba(X_pairs)
+            if hasattr(pair_probs, "detach"):
+                pair_probs = pair_probs.detach().cpu()[:, 0]
+            else:
+                pair_probs = pair_probs[:,0]
 
             # If an evaluation label sequence is given, compute the performance of P classifier alone and print evaluation
             if Y_eval:
