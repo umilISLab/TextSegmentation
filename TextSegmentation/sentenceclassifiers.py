@@ -619,8 +619,10 @@ class PairGraphSeg():
                 N_epoch_losses.append(self.N_classifier.best_loss_)
 
             # Learning rate schedule update
-            self.P_classifier.scheduler.step()
-            self.N_classifier.scheduler.step()
+            if hasattr(self.P_classifier, "scheduler"):
+                self.P_classifier.scheduler.step()
+            if hasattr(self.N_classifier, "scheduler"):
+                self.N_classifier.scheduler.step()
 
             # Print epoch average losses if verbose
             if verbose:
