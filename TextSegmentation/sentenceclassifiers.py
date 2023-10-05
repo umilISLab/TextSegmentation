@@ -426,9 +426,9 @@ class GeneralCRF(BaseClassifier):
         with torch.no_grad():
             # Iterative prediction
             for t in range(self._max_iter):
-                Y_pred = self.forward(Ps, Xs, Y_curr)
-                Y_curr_padded = torch.nn.utils.rnn.pad_sequence(Y_curr, batch_first = True)
-                delta = self._delta_function(Y_pred.detach().cpu(), Y_curr_padded.detach().cpu())
+                Y_pred = self.forward(Ps, Xs, Y_curr).detach()
+                Y_curr_padded = torch.nn.utils.rnn.pad_sequence(Y_curr, batch_first = True).to(self.device)
+                delta = self._delta_function(Y_pred, Y_curr_padded)
                 if delta.item() < self._termination:
                     break
                 Y_curr = [ys for ys in Y_pred]
@@ -611,12 +611,15 @@ class PairGraphSeg():
                 tic = time()
                 self.N_classifier.partial_fit(Ps, Xs, Y_batch, classes=self.classes_, Y_curr = current_predictions[b])
                 Y_new = self.N_classifier.predict_proba(Ps, Xs, Y_curr = current_predictions[b])
-                self.time_performance["Fit node classifier"].append(time() - tic)
+                self.time_performance["Fit Node classifier"].append(time() - tic)
 
                 # Update current predictions for one batch at a time
                 current_predictions[b] = [T for T in Y_new]
 
                 N_epoch_losses.append(self.N_classifier.best_loss_)
+                
+            if verbose:
+                print("--- Epoch End ---")
 
             # Learning rate schedule update
             if hasattr(self.P_classifier, "scheduler"):
