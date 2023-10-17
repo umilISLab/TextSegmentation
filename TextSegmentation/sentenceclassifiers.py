@@ -702,14 +702,7 @@ class PairGraphSeg():
             P = torch.eye(len(x_seq)) if self_loops else torch.zeros(len(x_seq), len(x_seq))
             for (i,j), p in zip(pairs, pair_probs.tolist()):
                 P[i,j] = p
-            P[P < self.rho] = 0
-            tmp = torch.clone(P)
-            tmp[tmp < self.rho] = 0
-            tmp[tmp >= self.tau] = 0
-            upper_d = torch.diag(tmp, diagonal = 1)
-            lower_d = torch.diag(tmp, diagonal = -1)
-            P[P < self.tau] = 0
-            P += torch.diag(upper_d, diagonal = 1) + torch.diag(lower_d, diagonal = -1)
+            P = filter_tensor_elements(P, upper_threshold = self.tau, lower_threshold = self.rho)
             if self.rounding:
                 P[P >= self.tau] = 1
             Ps.append(P)
