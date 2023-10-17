@@ -303,3 +303,16 @@ def init_label_probs(sequence_lengths: Iterable[int], classes: Iterable[Union[st
              onehot_tensor(len(classes), priorposinfo[-1]).reshape((1, -1))], dim=0), priors))
 
     return priors
+
+
+def filter_tensor_elements(T, upper_threshold, lower_threshold):
+
+    T[T < lower_threshold] = 0
+    
+    upper_diag = torch.diagonal(T, offset=1)
+    lower_diag = torch.diagonal(T, offset=-1)
+
+    T[T == torch.diag(upper_diag, 1)] = torch.where(upper_diag >= upper_threshold, upper_diag, 0)
+    T[T == torch.diag(lower_diag, -1)] = torch.where(lower_diag >= upper_threshold, lower_diag, 0)
+
+    return T
