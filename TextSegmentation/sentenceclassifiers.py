@@ -333,6 +333,7 @@ class GeneralCRF(BaseClassifier):
         # Pad the list of graph (adjacency or laplacian) matrices to the highest number of nodes (N_nodes_max)
         P_tilde = pad_sequence_2d(Ps)
         P_tilde = torch.stack(P_tilde).float().to(self.device)
+        P_tilde = torch.nn.functional.normalize(P_tilde, p = 1, dim = 1)
         # P_tilde.shape = batch_size, N_nodes_max, N_nodes_max
 
         # Pad the list of node features of each graph
