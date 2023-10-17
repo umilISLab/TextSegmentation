@@ -181,7 +181,8 @@ def doc_fold_mapping(data, idfield, labelfield, n_folds):
     kfold_splitter = KFold(n_splits=n_folds, shuffle=True)
     doc_ids = data[idfield].unique()
     most_frequent_label = data[labelfield].value_counts().idxmax()
-    strat_variable = [data.loc[data[idfield] == idx, labelfield].value_counts()[most_frequent_label] for idx in doc_ids]
+    var_counts = [data.loc[data[idfield] == idx, labelfield].value_counts() for idx in doc_ids]
+    strat_variable = list(map(lambda d: d[most_frequent_label] if most_frequent_label in d else 0, var_counts))
     bins = np.linspace(min(strat_variable), max(strat_variable), n_folds)
     stratification = np.digitize(strat_variable, bins = bins)
     folds = {doc_ids[idx]: i for i, (train, test) in enumerate(kfold_splitter.split(doc_ids, stratification)) for idx in test}
