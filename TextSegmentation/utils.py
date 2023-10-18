@@ -154,13 +154,13 @@ def mean_pooling(model_output, attention_mask):
 
 
 # Getting Sentence Embeddings
-def sentence_embeddings(sentences, tokenizer, model, max_length=512, pooling: bool = True):
+def sentence_embeddings(sentences, tokenizer, model, device, max_length=512, pooling: bool = True):
     # Tokenize sentences
     encoded_input = tokenizer(sentences, padding=True, truncation=True, max_length=max_length, return_tensors='pt')
 
     # Compute token embeddings
     with torch.no_grad():
-        model_output = model(**encoded_input.to("cuda"))
+        model_output = model(**encoded_input.to(device))
 
     # Perform pooling. In this case, mean pooling
     if pooling:
@@ -181,8 +181,7 @@ def doc_fold_mapping(data, idfield, labelfield, n_folds):
     kfold_splitter = KFold(n_splits=n_folds, shuffle=True)
     doc_ids = data[idfield].unique()
     most_frequent_label = data[labelfield].value_counts().idxmax()
-    var_counts = [data.loc[data[idfield] == idx, labelfield].value_counts() for idx in doc_ids]
-    strat_variable = list(map(lambda d: d[most_frequent_label] if most_frequent_label in d else 0, var_counts))
+    strat_variable = [data.loc[data[idfield] == idx, labelfield].value_counts()[most_frequent_label] for idx in doc_ids]
     bins = np.linspace(min(strat_variable), max(strat_variable), n_folds)
     stratification = np.digitize(strat_variable, bins = bins)
     folds = {doc_ids[idx]: i for i, (train, test) in enumerate(kfold_splitter.split(doc_ids, stratification)) for idx in test}
@@ -306,13 +305,14 @@ def init_label_probs(sequence_lengths: Iterable[int], classes: Iterable[Union[st
 
 
 def filter_tensor_elements(T, upper_threshold, lower_threshold):
-
-    T[T < lower_threshold] = 0
     
-    upper_diag = torch.diagonal(T, offset=1)
-    lower_diag = torch.diagonal(T, offset=-1)
-
-    T[T == torch.diag(upper_diag, 1)] = torch.where(upper_diag >= upper_threshold, upper_diag, 0)
-    T[T == torch.diag(lower_diag, -1)] = torch.where(lower_diag >= upper_threshold, lower_diag, 0)
-
-    return T
+    tridiag_mask = torch.triu(torch.ones(T.shape), diagonal = -1)
+    tridiag_mask = tridiag_mask*tridiag_mask.T
+        
+    off_diag = (-tridiag_mask + 1) * T
+    off_diag[off_diag < upper_threshold] = 0
+    
+    tridiag = tridiag_mask * T
+    tridiag[tridiag < lower_threshold] = 0
+    
+    return tridiag + off_diag

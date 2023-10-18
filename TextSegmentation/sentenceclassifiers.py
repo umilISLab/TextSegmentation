@@ -3,7 +3,7 @@ from .utils import *
 from collections import defaultdict
 from itertools import combinations
 from sklearn.utils import resample
-from sklearn.metrics.pairwise import cosine_similarity
+from sklearn.metrics.pairwise import cosine_similarity, linear_kernel
 from random import sample
 import gc
 from time import time
@@ -541,9 +541,11 @@ class PairGraphSeg():
                 for n, (x_seq, y_seq) in enumerate(zip(X_batch, Y_batch)):
                     idx = list(range(len(x_seq)))
                     doc_pairs[n] = list(combinations(idx, 2))
-                    nonconsecutive_pairs = list(filter(lambda tup: np.abs(tup[1] - tup[0]) != 1, doc_pairs[n]))
-                    x_pairs = [np.concatenate((x_seq[i], x_seq[j])) for i, j in nonconsecutive_pairs]
-                    y_pairs = [np.clip(2 * np.dot(y_seq[i], y_seq[j]), 0, 1) for i, j in nonconsecutive_pairs]
+                    #nonconsecutive_pairs = list(filter(lambda tup: np.abs(tup[1] - tup[0]) != 1, doc_pairs[n]))
+                    x_pairs = [np.concatenate((x_seq[i], x_seq[j])) for i, j in doc_pairs[n]]
+                    y_matrix = linear_kernel(y_seq, y_seq)
+                    y_matrix = np.clip(y_matrix*2, 0, 1)
+                    y_pairs = [y_matrix[i,j] for i, j in doc_pairs[n]]
                     X_batch_pairs.extend(x_pairs)
                     Y_batch_pairs.extend(y_pairs)
                 self.time_performance["Pair preparation"].append(time() - tic)
@@ -570,7 +572,7 @@ class PairGraphSeg():
                     if isinstance(self.P_classifier, torch.nn.Module):
                         X_pair_minibatch = tensor_check(X_pair_minibatch).to(self.device)
                         Y_pair_minibatch = tensor_check(Y_pair_minibatch).to(self.device)
-                    self.P_classifier.partial_fit(X_pair_minibatch, Y_pair_minibatch, classes=[0,1])
+                    self.P_classifier.partial_fit(X_pair_minibatch, Y_pair_minibatch, classes=[1,0])
                 self.time_performance["Fit Pair classifier"].append(time() - tic)
 
                 P_epoch_losses.append(self.P_classifier.best_loss_)
@@ -586,13 +588,16 @@ class PairGraphSeg():
                         A = np.ceil(A)
 
                     # Inverse root degree array
-                    d = np.ceil(A).sum(axis = 1)
-                    ird = np.power(d, -0.5)
-                    D = np.diag(d)
-                    IRD = np.diag(ird)
+                    if self.use_laplacian:
+                        d = np.ceil(A).sum(axis = 1)
+                        ird = np.power(d, -0.5)
+                        D = np.diag(d)
+                        IRD = np.diag(ird)
 
-                    # Normalized Laplacian matrix: L = D^(-1/2) @ (D - A) @ D^(-1/2)
-                    P = IRD @ (D - A) @ IRD if self.use_laplacian else A
+                        # Normalized Laplacian matrix: L = D^(-1/2) @ (D - A) @ D^(-1/2)
+                        P = IRD @ (D - A) @ IRD
+                    else:
+                        P = A
                     P = torch.from_numpy(P)
                     Ps.append(P)
 
@@ -618,9 +623,6 @@ class PairGraphSeg():
                 current_predictions[b] = [T for T in Y_new]
 
                 N_epoch_losses.append(self.N_classifier.best_loss_)
-                
-            if verbose:
-                print("--- Epoch End ---")
 
             # Learning rate schedule update
             if hasattr(self.P_classifier, "scheduler"):
@@ -645,7 +647,7 @@ class PairGraphSeg():
 
             gc.collect()
 
-    def predict(self, X: List[List[np.ndarray]], priors: List[torch.Tensor] = [], Y_eval: List[List[Union[str, int, np.ndarray]]] = [], self_loops: bool = True, verbose: bool = True):
+    def predict(self, X: List[List[np.ndarray]], priors: List[torch.Tensor] = [], Y_eval: List[List[Union[str, int, np.ndarray]]] = [], batch_pairs: int = 1024, self_loops: bool = True, verbose: bool = True):
         """
         :param X: List of data sequences.
         :param priors: List of tensors containing label probabilities for each node in a sequence.
@@ -667,17 +669,37 @@ class PairGraphSeg():
         Xs = []
         predictions = []
 
-        for l, x_seq in enumerate(X):
+        for x_seq in X:
             idx = list(range(len(x_seq)))
             pairs = list(combinations(idx, 2))
             X_pairs = [np.concatenate((x_seq[i], x_seq[j])) for i, j in pairs]
-
-            X_pairs = tensor_check(X_pairs).to(self.device)
-            pair_probs = self.P_classifier.predict_proba(X_pairs)
-            if hasattr(pair_probs, "detach"):
-                pair_probs = pair_probs.detach().cpu()[:, 0]
-            else:
-                pair_probs = pair_probs[:,0]
+            if verbose:
+                print(f"[PairGraphSeg.predict] Number of pairs: {len(X_pairs)}")
+            
+            pair_batches = batch_generator(X_pairs, batch_pairs)
+            pair_probs = []
+            
+            if verbose:
+                print("[PairGraphSeg.predict] Pairs batched.")
+                
+            for X_pairs_batch in pair_batches:
+                
+                X_pairs_batch = tensor_check(X_pairs_batch).to(self.device)
+                
+                batch_probs = self.P_classifier.predict_proba(X_pairs_batch)
+                
+                # Detach and back to the CPU if using a PyTorch model
+                if hasattr(pair_probs, "detach"):
+                    batch_probs = batch_probs.detach().cpu()[:,0]
+                else:
+                    batch_probs = batch_probs[:,0]
+                    
+                pair_probs.append(batch_probs)
+                
+            pair_probs = np.concatenate(pair_probs) if isinstance(batch_probs, np.ndarray) else torch.cat(pair_probs)
+            
+            if verbose:
+                print("[PairGraphSeg.predict] Pair probabilities computed.")
 
             # If an evaluation label sequence is given, compute the performance of P classifier alone and print evaluation
             if Y_eval:
@@ -702,6 +724,10 @@ class PairGraphSeg():
             P = torch.eye(len(x_seq)) if self_loops else torch.zeros(len(x_seq), len(x_seq))
             for (i,j), p in zip(pairs, pair_probs.tolist()):
                 P[i,j] = p
+                
+            if verbose:
+                print("[P_classifier.predict_proba] P matrix of shape:", P.shape)
+                
             P = filter_tensor_elements(P, upper_threshold = self.tau, lower_threshold = self.rho)
             if self.rounding:
                 P[P >= self.tau] = 1
