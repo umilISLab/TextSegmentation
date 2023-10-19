@@ -537,20 +537,24 @@ class PairGraphSeg():
                 # Check the batches are lists of lists
 
                 # Pair preparation
+                if verbose:
+                    print("\tPair preparation")
                 tic = time()
                 for n, (x_seq, y_seq) in enumerate(zip(X_batch, Y_batch)):
                     idx = list(range(len(x_seq)))
                     doc_pairs[n] = list(combinations(idx, 2))
                     #nonconsecutive_pairs = list(filter(lambda tup: np.abs(tup[1] - tup[0]) != 1, doc_pairs[n]))
                     x_pairs = [np.concatenate((x_seq[i], x_seq[j])) for i, j in doc_pairs[n]]
-                    y_matrix = linear_kernel(y_seq, y_seq)
-                    y_matrix = np.clip(y_matrix*2, 0, 1)
-                    y_pairs = [y_matrix[i,j] for i, j in doc_pairs[n]]
+                    y_matrix = linear_kernel(y_seq, y_seq, dense_output = False) * 2
+                    y_pairs = [np.clip(y_matrix[i,j], 0, 1) for i, j in doc_pairs[n]]
+                    
                     X_batch_pairs.extend(x_pairs)
                     Y_batch_pairs.extend(y_pairs)
                 self.time_performance["Pair preparation"].append(time() - tic)
 
                 # Pair sampling
+                if verbose:
+                    print("\tPair sampling")
                 tic = time()
                 if pair_sample < len(X_batch_pairs):
                     stratification = list(map(np.ceil, Y_batch_pairs))
@@ -563,8 +567,13 @@ class PairGraphSeg():
                     X_pair_sample = X_batch_pairs
                     Y_pair_sample = Y_batch_pairs
                 self.time_performance["Pair sampling"].append(time() - tic)
+                
+                del X_batch_pairs
+                del Y_batch_pairs
 
                 # Fit Pair classifier
+                if verbose:
+                    print("\tFit Pair classifier")
                 tic = time()
                 minibatch_gen = batch_generator(list(zip(X_pair_sample, Y_pair_sample)), pair_batch_size)
                 for minibatch in minibatch_gen:
@@ -578,12 +587,14 @@ class PairGraphSeg():
                 P_epoch_losses.append(self.P_classifier.best_loss_)
 
                 # Construction of adjacency matrices, laplacian matrices and node feature matrices
+                if verbose:
+                    print("\tConstruction of adjacency matrices and node feature matrices")
                 tic = time()
                 Ps = []
                 Xs = []
                 for n, (x_seq, y_seq) in enumerate(zip(X_batch, Y_batch)):
                     # Adjacency matrix
-                    A = np.clip(cosine_similarity(y_seq, y_seq), 0, 1)
+                    A = np.clip(linear_kernel(y_seq, y_seq)*2, 0, 1)
                     if self.rounding:
                         A = np.ceil(A)
 
@@ -608,12 +619,16 @@ class PairGraphSeg():
                 self.time_performance["Graph construction"].append(time() - tic)
 
                 # Initially fill current predictions with random probabilities (list of tensors of shapes of instances in Y_batch)
+                if verbose:
+                    print("\tRandom initialization of current predictions")
                 if len(current_predictions) < b + 1:
                     tensor_shapes = [(len(a), len(self.classes_)) for a in Y_batch]
                     Y_curr = random_init_tensor_list(tensor_shapes)
                     current_predictions.append(Y_curr)
 
                 # Fit node classifier and predict labels
+                if verbose:
+                    print("\tFit Node classifier")
                 tic = time()
                 self.N_classifier.partial_fit(Ps, Xs, Y_batch, classes=self.classes_, Y_curr = current_predictions[b])
                 Y_new = self.N_classifier.predict_proba(Ps, Xs, Y_curr = current_predictions[b])
