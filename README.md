@@ -1,8 +1,22 @@
 # TextSegmentation
 
-This repository contains a PyTorch implementation of the methods described in the paper [Few-Shot Legal Text Segmentation via Rewiring Conditional Random Fields: a Preliminary Study], to be presented at the [2nd International Workshop on Digital Justice, Digital Law, and Conceptual Modeling (JUSMOD 2023)](https://jusmod2023.github.io/).
+This repository contains a PyTorch implementation of the methods described in the paper [Few-Shot Legal Text Segmentation via Rewiring Conditional Random Fields: a Preliminary Study](https://link.springer.com/chapter/10.1007/978-3-031-47112-4_13), to be presented at the [2nd International Workshop on Digital Justice, Digital Law, and Conceptual Modeling (JUSMOD 2023)](https://jusmod2023.github.io/).
 
-Paper reference and an example on a publicly available dataset will be provided as soon as possible.
+If you use our code, please cite our paper:
+```
+@InProceedings{ferrarapicasciariva2023,
+author="Ferrara, Alfio and Picascia, Sergio and Riva, Davide",
+editor="Sales, Tiago Prince and Ara{\'u}jo, Jo{\~a}o and Borbinha, Jos{\'e} and Guizzardi, Giancarlo",
+title="Few-Shot Legal Text Segmentation via Rewiring Conditional Random Fields: A Preliminary Study",
+booktitle="Advances in Conceptual Modeling",
+year="2023",
+publisher="Springer Nature Switzerland",
+address="Cham",
+pages="141--150",
+abstract="Functional Text Segmentation is the task of partitioning a textual document in segments that play a certain function. In the legal domain, this is important to support downstream tasks, but it faces also challenges of segment discontinuity, few-shot scenario, and domain specificity. We propose an approach that, revisiting the underlying graph structure of a Conditional Random Field and relying on a combination of neural embeddings and engineered features, is capable of addressing these challenges. Evaluation on a dataset of Italian case law decisions yields promising results.",
+isbn="978-3-031-47112-4"
+}
+```
 
 ---
 
